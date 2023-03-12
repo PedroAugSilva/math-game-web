@@ -1,9 +1,12 @@
-import { ArrowCounterClockwise } from "phosphor-react";
-import color from "tailwindcss/colors";
-import { changeAvatar } from "../utils/avatars";
+import { changeAvatar, avatar } from "../utils/avatars";
 import { useForm, SubmitHandler } from "react-hook-form";
 import usePersistedState from "../utils/usePersistedState";
-import * as Modal from "@radix-ui/react-dialog";
+import * as Dialog from "@radix-ui/react-dialog";
+import { useState } from "react";
+import Modal from "../components/Modal";
+import { CaretLeft, CaretRight } from "phosphor-react";
+import colors from "tailwindcss/colors";
+import socket from "socket.io-client";
 
 interface IUser {
   username: string;
@@ -15,21 +18,38 @@ interface IUserForm {
 }
 
 const Home = () => {
+  const { register, handleSubmit } = useForm<IUser>();
+
+  const [image, setImage] = useState<string>();
+
   const [user, setUser] = usePersistedState<IUser>("user", {
     username: "",
     avatar: changeAvatar(),
   });
 
-  const handleChangeImage = () => {
-    setUser((preValue) => {
-      return {
-        username: preValue.username,
-        avatar: changeAvatar(),
-      };
-    });
-  };
+  const handleChangeImage = (work: "back" | "skip") => {
+    switch (work) {
+      case "back":
+        setUser((preValue) => {
+          const index = avatar.indexOf(preValue.avatar!);
+          return {
+            username: preValue.username,
+            avatar: avatar[index === 0 ? avatar.length - 1 : index - 1],
+          };
+        });
+        break;
 
-  const { register, handleSubmit } = useForm<IUser>();
+      case "skip":
+        setUser((preValue) => {
+          const index = avatar.indexOf(preValue.avatar!);
+          return {
+            username: preValue.username,
+            avatar: avatar[index === avatar.length - 1 ? 0 : index + 1],
+          };
+        });
+        break;
+    }
+  };
 
   const handleSubmitForm: SubmitHandler<IUserForm> = (data) => {
     setUser((preValue) => {
@@ -38,24 +58,34 @@ const Home = () => {
         avatar: preValue.avatar,
       };
     });
+    const io = socket("http://localhost:3000/");
+    io.on("hello", (socket) => {
+      console.log(socket.id);
+    });
   };
 
   return (
-    <div className="w-content h-content bg-white drop-shadow-2xl rounded-2xl p-10">
-      <div className="flex items-center flex-col justify-center">
-        <figure className="flex items-center justify-center group relative">
+    <div className="w-content h-content bg-white drop-shadow-2xl rounded-2xl py-10 px-5">
+      <div className="flex items-center flex-col justify-center w-full">
+        <div className=" h-content flex flexl-row items-center group ">
+          <button
+            className="w-content opacity-0 group-hover:opacity-100 transition-all"
+            onClick={() => handleChangeImage("back")}
+          >
+            <CaretLeft size={40} color={colors.blue[500]} />
+          </button>
           <img
             src={user.avatar}
             alt=""
-            className="rounded-full border-4 border-blue-500 w-[200px] h-[200px] p-1 "
+            className="rounded-full border-4 border-blue-500 w-52 h-52 p-1"
           />
           <button
-            onClick={handleChangeImage}
-            className="absolute w-full h-full flex items-center justify-center transition-all duration-300 rounded-full bg-black bg-opacity-70 opacity-0 group-hover:opacity-100"
+            className="w-content opacity-0 group-hover:opacity-100 transition-all"
+            onClick={() => handleChangeImage("skip")}
           >
-            <ArrowCounterClockwise size={70} color={color.blue[500]} />
+            <CaretRight size={40} color={colors.blue[500]} />
           </button>
-        </figure>
+        </div>
         <form
           className="flex flex-col items-center"
           onSubmit={handleSubmit(handleSubmitForm)}
@@ -67,15 +97,15 @@ const Home = () => {
             defaultValue={user.username}
             {...register("username")}
           />
-          <Modal.Root>
-            <Modal.Trigger className="h-10 w-full mt-3 bg-blue-500 rounded-full px-3 text-lg text-white font-semibold transition-all hover:scale-105">
+          <Dialog.Root>
+            <Dialog.Trigger
+              className="h-10 w-full mt-3 bg-blue-500 rounded-full px-3 text-lg text-white font-semibold transition-all hover:scale-105"
+              type="submit"
+            >
               Procurar oponente
-            </Modal.Trigger>
-            <Modal.Portal>
-              <Modal.Overlay />
-              <Modal.Content></Modal.Content>
-            </Modal.Portal>
-          </Modal.Root>
+            </Dialog.Trigger>
+            <Modal avatar={user.avatar} username={user.username} />
+          </Dialog.Root>
         </form>
       </div>
     </div>
